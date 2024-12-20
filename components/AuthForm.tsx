@@ -1,7 +1,6 @@
 "use client";
 
 import React, { JSX, useState } from "react";
-import { NextPage } from "next";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -17,6 +16,8 @@ import {
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import Link from "next/link";
+import { createAccount, signInUser } from "@/lib/actions/user.actions";
+import OtpModal from "@/components/OTPModal";
 
 interface AuthFormProps {
   type: "sign-in" | "sign-up";
@@ -32,9 +33,10 @@ const authFormSchema = (formType: AuthFormProps["type"]) => {
   });
 };
 
-const AuthForm: NextPage<AuthFormProps> = ({ type }): JSX.Element => {
+const AuthForm: React.FC<AuthFormProps> = ({ type }): JSX.Element => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [accountId, setAccountId] = useState<null>(null);
   const formSchema = authFormSchema(type);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -45,7 +47,24 @@ const AuthForm: NextPage<AuthFormProps> = ({ type }): JSX.Element => {
     },
   });
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    console.log(values);
+    setIsLoading(true);
+    setErrorMessage("");
+
+    try {
+      const user =
+        type === "sign-up"
+          ? await createAccount({
+              fullName: values.fullName || "",
+              email: values.email,
+            })
+          : await signInUser({ email: values.email });
+
+      setAccountId(user.accountId);
+    } catch {
+      setErrorMessage("Failed to create account. Please try again later.");
+    } finally {
+    }
+    setIsLoading(false);
   };
 
   return (
@@ -123,14 +142,17 @@ const AuthForm: NextPage<AuthFormProps> = ({ type }): JSX.Element => {
             </p>
             <Link
               href={type === "sign-in" ? "/sign-up" : "/sign-in"}
-              className="ml-1 font-medium text-brand
-              "
+              className="ml-1 font-medium text-brand"
             >
               {type === "sign-in" ? "Sign Up" : "Sign In"}
             </Link>
           </div>
         </form>
       </Form>
+
+      {accountId && (
+        <OtpModal email={form.getValues("email")} accountId={accountId} />
+      )}
     </>
   );
 };
